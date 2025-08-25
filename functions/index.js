@@ -64,7 +64,7 @@ exports.syncNewProductToTypesense = functions.firestore
 exports.syncUpdatedProductToTypesense = functions.firestore
   .document('Products/{productId}')
   .onUpdate(async (snap, context) => {
-    const updatedProduct = snap.data();
+    const updatedProduct = snap.after.data();
     const productId = context.params.productId;
 
     try {
