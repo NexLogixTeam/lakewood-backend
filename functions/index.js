@@ -36,6 +36,7 @@ const client = new Typesense.Client({
 exports.syncNewProductToTypesense = functions.firestore
   .document('Products/{productId}')
   .onCreate(async (snap, context) => {
+    logger.info('Syncing new product to typesense>>>', snap.id);
     const newProduct = snap.data();
     const productId = context.params.productId;
 
@@ -46,14 +47,11 @@ exports.syncNewProductToTypesense = functions.firestore
         .documents()
         .create({
           ...newProduct,
+          key: productId,
           id: productId,
           createdAt: newProduct.createdAt ? newProduct.createdAt.toDate() : '',
         });
 
-      await client
-        .collections('Products')
-        .documents(updatedBook.id)
-        .update(updatedBook);
       logger.log(`Successfully added product ${productId} to Typesense`);
     } catch (error) {
       logger.error(`Error adding product ${productId} to Typesense:`, error);
@@ -74,15 +72,30 @@ exports.syncUpdatedProductToTypesense = functions.firestore
         .documents(productId)
         .update({
           ...updatedProduct,
-          id: productId,
+          key: productId,
           createdAt: updatedProduct.createdAt
             ? updatedProduct.createdAt.toDate()
             : '',
         });
 
-      logger.log(`Successfully product updated ${productId} to Typesense`);
+      logger.info(`Successfully product updated ${productId} to Typesense`);
     } catch (error) {
-      logger.error(`Error adding product ${productId} to Typesense:`, error);
+      logger.info(`Error adding product ${productId} to Typesense:`, error);
+    }
+  });
+
+exports.syncDeletedProductFromTypesense = functions.firestore
+  .document('Products/{productId}')
+  .onDelete(async (snap, context) => {
+    const productId = context.params.productId;
+    try {
+      await client.collections('Products').documents(productId).delete();
+      logger.info(`Successfully deleted product ${productId} from Typesense`);
+    } catch (error) {
+      logger.error(
+        `Error deleting product ${productId} from Typesense:`,
+        error
+      );
     }
   });
 
@@ -116,7 +129,8 @@ exports.sendNotification = functions.firestore
         recipientId: snapshot.data().recipientId,
         productId: snapshot.data().productId,
         screen: 'ChatDetails',
-        badge: user.unreadNotifications || 0,
+        // badge: user.unreadNotifications || 0,
+        // badge: 0,
       };
     } else {
       recipientDetails = {};
@@ -141,7 +155,7 @@ exports.sendNotification = functions.firestore
         payload: {
           aps: {
             sound: 'horn.wav',
-            badge: user.unreadNotifications || 0,
+            // badge: user.unreadNotifications || 0,
           },
         },
       },
@@ -153,7 +167,7 @@ exports.sendNotification = functions.firestore
         notification: {
           channel_id: 'sound_channel',
           sound: 'horn.wav',
-          notification_count: 20,
+          //notification_count: 0,
         },
       },
     };
